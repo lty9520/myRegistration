@@ -3,9 +3,9 @@
 
 #include <vtkAutoInit.h>        
 
-VTK_MODULE_INIT(vtkRenderingOpenGL);  //自己的PCL1.8.0安装后产生的是OpenGL2,所以这一句需要改成OpenGL2.
+VTK_MODULE_INIT(vtkRenderingOpenGL);  //解决方法参考【http://tieba.baidu.com/p/4551950404#93116920200l】
 
-//VTK_MODULE_INIT(vtkRenderingOpenGL2);  //解决方法参考【http://tieba.baidu.com/p/4551950404#93116920200l】
+//VTK_MODULE_INIT(vtkRenderingOpenGL2);  //自己的PCL1.8.1安装后产生的是OpenGL,所以这一句需要改成OpenGL.
 
 VTK_MODULE_INIT(vtkInteractionStyle); //外部依赖项添加opengl32.lib（我自己的还要添加vfw32.lib你的不知道要不要）
 
@@ -24,6 +24,18 @@ VTK_MODULE_INIT(vtkRenderingFreeType);
 using namespace std;
 using namespace pcl;
 
+/*
+	myPointCloud(myPC)重新封装点云格式
+		/
+		|	cloud → pcl::PointXYZ格式点云数据
+		|	transformedCloud → pcl::PointXYZ格式点云数据
+	   /	bboxQ → 四元数(rotation of bouding box) 
+	   \	bboxT → 三维向量(translation of bouding box)
+		|	cenpot → 形心点
+		|	pcaX、pcaY、pcaZ → 主方向点
+		|	whd(width&height&depth) → 三维向量
+		\
+*/
 struct myPC
 {
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud;
@@ -35,6 +47,14 @@ struct myPC
 	float sc;
 };
 
+//************************************
+// Method:    spatialTF
+// FullName:  spatialTransForm( Transform a point cloud to (0,0,0))
+// Access:    public 
+// Returns:   void
+// Qualifier:
+// Parameter: myPC & pointcloud → the point cloud need to be transformed to (0,0,0)
+//************************************
 void spatialTF(myPC & pointcloud)
 {
 	Eigen::Vector4f pcaCentroid;
@@ -146,6 +166,15 @@ void spatialTF(myPC & pointcloud)
 }
 
 
+//************************************
+// Method:    scaleTF
+// FullName:  scaleTransForm( Zooming a point cloud by parameter "scale")
+// Access:    public 
+// Returns:   void
+// Qualifier:
+// Parameter: myPC & ori_cloud → the point cloud need to be zoomed
+// Parameter: float scale → the zooming scale
+//************************************
 void scaleTF(myPC & ori_cloud, float scale)
 {
 	Eigen::Affine3f transform_scale = Eigen::Affine3f::Identity();
@@ -186,21 +215,28 @@ int main()
 	cout << "Reference Point cloud data: " << cloud_refer->points.size() << " points" << endl;
 	cout << "Aligned Point cloud data: " << cloud_align->points.size() << " points" << endl;
 
+	//refer → 参考点云结构体 ； align → 对齐点云结构体
 	myPC refer, align;
 	refer.cloud = cloud_refer;
 	align.cloud = cloud_align;
 	cout << "********************spatial transform********************" << endl;
+	//对refer和align点云进行空间变换到原点位置
 	spatialTF(refer);
 	spatialTF(align);
 
 	cout << "********************scale transform********************" << endl;
+	//对对齐点云依照参考点云的尺寸大小进行缩放的倍数
 	float sca = refer.sc / align.sc;
+	//将对齐点云依据缩放倍数进行缩放并变换到坐标原点
 	scaleTF(align, sca);
 	spatialTF(align);
+
+	cout << "********************ICP Registration********************" << endl;
 
 	//visualization
 	pcl::visualization::PCLVisualizer viewer;
 
+	//refer cloud phase
 	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> refer_handler(refer.transformedCloud, 0, 255, 0); //转换到原点的点云相关
 	viewer.addPointCloud(refer.transformedCloud, refer_handler, "transformCloud");
 	viewer.addCube(refer.bboxT, refer.bboxQ, refer.whd(0), refer.whd(1), refer.whd(2), "bbox1");
@@ -211,6 +247,7 @@ int main()
 	viewer.addArrow(refer.pcaY, refer.cenpot, 0.0, 1.0, 0.0, false, "arrow_Y");
 	viewer.addArrow(refer.pcaZ, refer.cenpot, 0.0, 0.0, 1.0, false, "arrow_Z");
 
+	//align cloud phase
 	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> align_handler(align.transformedCloud, 255, 0, 0);  //输入的初始点云相关
 	viewer.addPointCloud(align.transformedCloud, align_handler, "cloud");
 	viewer.addCube(align.bboxT, align.bboxQ, align.whd(0), align.whd(1), align.whd(2), "bbox");
@@ -221,8 +258,10 @@ int main()
 	viewer.addArrow(align.pcaY, align.cenpot, 0.0, 1.0, 0.0, false, "arrow_y");
 	viewer.addArrow(align.pcaZ, align.cenpot, 0.0, 0.0, 1.0, false, "arrow_z");
 
+	//fundamental setting
 	viewer.addCoordinateSystem(0.5f*refer.sc);
 	viewer.setBackgroundColor(1.0, 1.0, 1.0);
+
 	while (!viewer.wasStopped())
 	{
 		viewer.spinOnce(100);
