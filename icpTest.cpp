@@ -1,29 +1,20 @@
 #include <iostream>
-#include <string>
-
-#include <vtkAutoInit.h>        
-
-VTK_MODULE_INIT(vtkRenderingOpenGL);  //自己的PCL1.8.0安装后产生的是OpenGL2,所以这一句需要改成OpenGL2.
-
-//VTK_MODULE_INIT(vtkRenderingOpenGL2);  //解决方法参考【http://tieba.baidu.com/p/4551950404#93116920200l】
-
-VTK_MODULE_INIT(vtkInteractionStyle); //外部依赖项添加opengl32.lib（我自己的还要添加vfw32.lib你的不知道要不要）
-
-VTK_MODULE_INIT(vtkRenderingFreeType);
-
 #include <pcl/io/pcd_io.h>
-#include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
+#include <pcl/registration/icp.h>
+#include <pcl/visualization/pcl_visualizer.h>
+#include <boost/thread/thread.hpp>
+#include <pcl/console/parse.h>  //pcl控制台解析
+#include <Eigen/src/StlSupport/details.h>
 #include <Eigen/Core>
 #include <pcl/common/transforms.h>
 #include <pcl/common/common.h>
-#include <pcl/visualization/pcl_visualizer.h>
-#include <pcl/io/vtk_lib_io.h>//loadPolygonFileOBJ所属头文件；
-#include <Eigen/src/StlSupport/details.h>
-#include <pcl/registration/icp.h>
+#include <pcl/point_cloud.h>
 
 using namespace std;
 using namespace pcl;
+
+bool next_iteration = false;
 
 struct myPC
 {
@@ -162,109 +153,99 @@ void scaleTF(myPC & ori_cloud, float scale)
 
 }
 
+//设置键盘交互函数
+void keyboardEvent(const pcl::visualization::KeyboardEvent &event, void *nothing)
+{
+	if (event.getKeySym() == "space" && event.keyDown())
+		next_iteration = true;
+}
+/*... 上述函数表示当键盘空格键按下时，才可执行ICP计算 ... */
+
 int main()
 {
-	//参考点云
-	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_refer(new pcl::PointCloud<pcl::PointXYZ>);
-	//对齐点云
-	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_align(new pcl::PointCloud<pcl::PointXYZ>);
-	////创建mesh对象
-	//pcl::PolygonMesh mesh;
-	////读取polygon文件，obj格式读取为mesh
-	//pcl::io::loadPolygonFile("huagong-final-1.5.obj", mesh);
-	//
-	//
-	//
-	////将mesh格式转换为PointCloud格式 方便读取
-	//pcl::fromPCLPointCloud2(mesh.cloud, *cloud_align);
-	////转存为可读取的PCD文件格式
-	//pcl::io::savePCDFileASCII("huagong-final-1.5.pcd", *cloud_align);
-	cout << "********************LOAD FILES PHASE********************" << endl;
-	//refer-scale 1.6999	align-scale  128.799
-	pcl::io::loadPCDFile("proj-final-fbx-dian.pcd", *cloud_refer);
-	pcl::io::loadPCDFile("huagong-final-1.5.pcd", *cloud_align);
 
-	cout << "Reference Point cloud data: " << cloud_refer->points.size() << " points" << endl;
-	cout << "Aligned Point cloud data: " << cloud_align->points.size() << " points" << endl;
+	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_sources(new pcl::PointCloud<pcl::PointXYZ>);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_target(new pcl::PointCloud<pcl::PointXYZ>);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr final(new pcl::PointCloud<pcl::PointXYZ>);
+
+	pcl::io::loadPCDFile("proj-final-fbx-dian.pcd", *cloud_target);
+	pcl::io::loadPCDFile("huagong-final-1.5.pcd", *cloud_sources);
+
+
+
+	cout << "Reference Point cloud data: " << cloud_target->points.size() << " points" << endl;
+	cout << "Aligned Point cloud data: " << cloud_sources->points.size() << " points" << endl;
 
 	myPC refer, align;
-	refer.cloud = cloud_refer;
-	align.cloud = cloud_align;
-	cout << "********************SPATIAL TRANSFORM PHASE********************" << endl;
+	refer.cloud = cloud_target;
+	align.cloud = cloud_sources;
+	cout << "********************spatial transform********************" << endl;
 	spatialTF(refer);
 	spatialTF(align);
 
-	cout << "********************SCALE TRANSFORM PHASE********************" << endl;
+	cout << "********************scale transform********************" << endl;
 	float sca = refer.sc / align.sc;
 	scaleTF(align, sca);
 	spatialTF(align);
 
-	cout << "********************ICP REGISTRATION PHASE********************" << endl;
+
 
 	pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;  //创建ICP的实例类
 	icp.setInputSource(align.cloud);
 	icp.setInputTarget(refer.cloud);
-	//设置对应点对之间的最大距离（此值对配准结果影响较大）。  
-	icp.setMaxCorrespondenceDistance(50);
-	// 设置两次变化矩阵之间的差值（一般设置为1e-10即可）
+	icp.setMaxCorrespondenceDistance(100);
 	icp.setTransformationEpsilon(1e-10);
-	//设置收敛条件是均方误差和小于阈值， 停止迭代；
-	icp.setEuclideanFitnessEpsilon(0.01);
-	//设置最大迭代次数
-	icp.setMaximumIterations(10000);
-	pcl::PointCloud<pcl::PointXYZ>::Ptr tempFinal(new pcl::PointCloud<pcl::PointXYZ>);
-	icp.align(*tempFinal);
-	
-	align.cloud = tempFinal;
-	cout << "*********----------SUB SPATIAL TRANSFORM PHASE----------*********" << endl;
-	spatialTF(align);
-	Eigen::Affine3f transform_rota = Eigen::Affine3f::Identity();
-	transform_rota.rotate(Eigen::AngleAxisf(M_PI, Eigen::Vector3f::UnitZ()));
-	pcl::transformPointCloud(*align.transformedCloud, *align.transformedCloud, transform_rota);
+	icp.setEuclideanFitnessEpsilon(0.001);
+	icp.setMaximumIterations(100);
+	icp.align(*final);
 
-	//Eigen::Matrix4f transformation = icp.getFinalTransformation();
-	cout << "-------------------SUB ICP RESULT PHASE-------------------" << endl;
-	cout << "has converged: " << icp.hasConverged() << endl;
-
-	//Obtain the Euclidean fitness score (e.g.,the average of sum of squared distances from the source to the target) 
-	cout << "RMS : " << sqrt(icp.getFitnessScore()) << endl;
 	
 	
 
-	//Get the final transformation matrix estimated by the registration method. 
-	cout << icp.getFinalTransformation() << endl;
+	boost::shared_ptr<pcl::visualization::PCLVisualizer> view(new pcl::visualization::PCLVisualizer("icp test"));  //定义窗口共享指针
+	int v1; //定义两个窗口v1，v2，窗口v1用来显示初始位置，v2用以显示配准过程
+	int v2;
+	view->createViewPort(0.0, 0.0, 0.5, 1.0, v1);  //四个窗口参数分别对应x_min,y_min,x_max.y_max.
+	view->createViewPort(0.5, 0.0, 1.0, 1.0, v2);
 
+	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> sources_cloud_color(align.cloud, 250, 0, 0); //设置源点云的颜色为红色
+	view->addPointCloud(align.cloud, sources_cloud_color, "sources_cloud_v1", v1);
+	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> target_cloud_color(refer.cloud, 0, 250, 0);  //目标点云为绿色
+	view->addPointCloud(refer.cloud, target_cloud_color, "target_cloud_v1", v1); //将点云添加到v1窗口
 
+	view->setBackgroundColor(0.0, 0.05, 0.05, v1); //设着两个窗口的背景色
+	view->setBackgroundColor(0.05, 0.05, 0.05, v2);
 
-	//visualization
-	pcl::visualization::PCLVisualizer viewer;
+	view->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "sources_cloud_v1");  //设置显示点的大小
+	view->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "target_cloud_v1");
 
-	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> refer_handler(refer.transformedCloud, 0, 255, 0); //转换到原点的点云相关
-	viewer.addPointCloud(refer.transformedCloud, refer_handler, "transformCloud");
-	viewer.addCube(refer.bboxT, refer.bboxQ, refer.whd(0), refer.whd(1), refer.whd(2), "bbox1");
-	viewer.setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_REPRESENTATION, pcl::visualization::PCL_VISUALIZER_REPRESENTATION_WIREFRAME, "bbox1");
-	viewer.setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_COLOR, 0.0, 1.0, 0.0, "bbox1");
+	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ>aligend_cloud_color(final, 255, 255, 255);  //设置配准结果为白色
+	view->addPointCloud(final, aligend_cloud_color, "aligend_cloud_v2", v2);
+	view->addPointCloud(refer.cloud, target_cloud_color, "target_cloud_v2", v2);
 
-	viewer.addArrow(refer.pcaX, refer.cenpot, 1.0, 0.0, 0.0, false, "arrow_X");
-	viewer.addArrow(refer.pcaY, refer.cenpot, 0.0, 1.0, 0.0, false, "arrow_Y");
-	viewer.addArrow(refer.pcaZ, refer.cenpot, 0.0, 0.0, 1.0, false, "arrow_Z");
+	view->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "aligend_cloud_v2");
+	view->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "target_cloud_v2");
 
-	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> align_handler(align.transformedCloud, 255, 0, 0);  //输入的初始点云相关
-	viewer.addPointCloud(align.transformedCloud, align_handler, "cloud");
-	viewer.addCube(align.bboxT, align.bboxQ, align.whd(0), align.whd(1), align.whd(2), "bbox");
-	viewer.setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_REPRESENTATION, pcl::visualization::PCL_VISUALIZER_REPRESENTATION_WIREFRAME, "bbox");
-	viewer.setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_COLOR, 1.0, 0.0, 0.0, "bbox");
-	
-	viewer.addArrow(align.pcaX, align.cenpot, 1.0, 0.0, 0.0, false, "arrow_x");
-	viewer.addArrow(align.pcaY, align.cenpot, 0.0, 1.0, 0.0, false, "arrow_y");
-	viewer.addArrow(align.pcaZ, align.cenpot, 0.0, 0.0, 1.0, false, "arrow_z");
-
-	viewer.addCoordinateSystem(0.5f*refer.sc);
-	viewer.setBackgroundColor(1.0, 1.0, 1.0);
-	while (!viewer.wasStopped())
+	view->registerKeyboardCallback(&keyboardEvent, (void*)NULL);  //设置键盘回调函数
+	int iterations = 0; //迭代次数
+	while (!view->wasStopped())
 	{
-		viewer.spinOnce(100);
+		view->spinOnce();  //运行视图
+		if (next_iteration)
+		{
+			icp.align(*final);  //icp计算
+			cout << "has conveged:" << icp.hasConverged() << "score:" << icp.getFitnessScore() << endl;
+			cout << "matrix:\n" << icp.getFinalTransformation() << endl;
+			cout << "iteration = " << ++iterations;
+			/*... 如果icp.hasConverged=1,则说明本次配准成功，icp.getFinalTransformation()可输出变换矩阵   ...*/
+			if (iterations == 1000)  //设置最大迭代次数
+				return 0;
+			view->updatePointCloud(final, aligend_cloud_color, "aligend_cloud_v2");
+
+		}
+		next_iteration = false;  //本次迭代结束，等待触发
+
 	}
 
-	return 0;
+
 }
