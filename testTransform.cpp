@@ -20,6 +20,7 @@ VTK_MODULE_INIT(vtkRenderingFreeType);
 #include <pcl/visualization/pcl_visualizer.h>
 #include <pcl/io/vtk_lib_io.h>//loadPolygonFileOBJ所属头文件；
 #include <Eigen/src/StlSupport/details.h>
+#include <pcl/registration/icp.h>
 
 using namespace std;
 using namespace pcl;
@@ -196,21 +197,28 @@ int main()
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_refer(new pcl::PointCloud<pcl::PointXYZ>);
 	//对齐点云
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_align(new pcl::PointCloud<pcl::PointXYZ>);
+	//visualization
+	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer(new pcl::visualization::PCLVisualizer("myRegistration"));  //定义窗口共享指针
+	int v1, v2; //创建两个视窗, v1显示空间变换后的效果, v2显示ICP配准最后的效果.
+	viewer->createViewPort(0.0, 0.0, 0.5, 1.0, v1);  //四个窗口参数分别对应x_min,y_min,x_max.y_max.
+	viewer->createViewPort(0.5, 0.0, 1.0, 1.0, v2);
+
+
 	////创建mesh对象
 	//pcl::PolygonMesh mesh;
 	////读取polygon文件，obj格式读取为mesh
-	//pcl::io::loadPolygonFile("huagong-final-1.5.obj", mesh);
+	//pcl::io::loadPolygonFile("chaijie-17.obj", mesh);
 	//
 	//
 	//
 	////将mesh格式转换为PointCloud格式 方便读取
 	//pcl::fromPCLPointCloud2(mesh.cloud, *cloud_align);
 	////转存为可读取的PCD文件格式
-	//pcl::io::savePCDFileASCII("huagong-final-1.5.pcd", *cloud_align);
-	cout << "********************load files********************" << endl;
+	//pcl::io::savePCDFileASCII("chaijie-17.pcd", *cloud_align);
+	cout << "********************LOAD FILES PHASE********************" << endl;
 	//refer-scale 1.6999	align-scale  128.799
-	pcl::io::loadPCDFile("proj-final-fbx-dian.pcd", *cloud_refer);
-	pcl::io::loadPCDFile("huagong-final-1.5.pcd", *cloud_align);
+	pcl::io::loadPCDFile("duidiegong.pcd", *cloud_refer);
+	pcl::io::loadPCDFile("chaijie-17.pcd", *cloud_align);
 
 	cout << "Reference Point cloud data: " << cloud_refer->points.size() << " points" << endl;
 	cout << "Aligned Point cloud data: " << cloud_align->points.size() << " points" << endl;
@@ -219,52 +227,123 @@ int main()
 	myPC refer, align;
 	refer.cloud = cloud_refer;
 	align.cloud = cloud_align;
-	cout << "********************spatial transform********************" << endl;
+
+	cout << "********************SPATIAL TRANSFORM PHASE********************" << endl;
 	//对refer和align点云进行空间变换到原点位置
 	spatialTF(refer);
 	spatialTF(align);
 
-	cout << "********************scale transform********************" << endl;
+	cout << "********************SCALE TRANSFORM PHASE********************" << endl;
 	//对对齐点云依照参考点云的尺寸大小进行缩放的倍数
+
+	
+	spatialTF(refer);
+	spatialTF(align);
+
+	
+
 	float sca = refer.sc / align.sc;
 	//将对齐点云依据缩放倍数进行缩放并变换到坐标原点
 	scaleTF(align, sca);
 	spatialTF(align);
 
-	cout << "********************ICP Registration********************" << endl;
-
-	//visualization
-	pcl::visualization::PCLVisualizer viewer;
-
+	//-------------------------spatial visualization-----------------------
 	//refer cloud phase
-	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> refer_handler(refer.transformedCloud, 0, 255, 0); //转换到原点的点云相关
-	viewer.addPointCloud(refer.transformedCloud, refer_handler, "transformCloud");
-	viewer.addCube(refer.bboxT, refer.bboxQ, refer.whd(0), refer.whd(1), refer.whd(2), "bbox1");
-	viewer.setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_REPRESENTATION, pcl::visualization::PCL_VISUALIZER_REPRESENTATION_WIREFRAME, "bbox1");
-	viewer.setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_COLOR, 0.0, 1.0, 0.0, "bbox1");
+	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> refer_handler_v1(refer.transformedCloud, 0, 255, 0); //转换到原点的点云相关
+	viewer->addPointCloud(refer.transformedCloud, refer_handler_v1, "transformCloud_v1", v1);
+	viewer->addCube(refer.bboxT, refer.bboxQ, refer.whd(0), refer.whd(1), refer.whd(2), "bbox1_v1", v1);
+	viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_REPRESENTATION, pcl::visualization::PCL_VISUALIZER_REPRESENTATION_WIREFRAME, "bbox1_v1");
+	viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_COLOR, 0.0, 1.0, 0.0, "bbox1_v1");
 
-	viewer.addArrow(refer.pcaX, refer.cenpot, 1.0, 0.0, 0.0, false, "arrow_X");
-	viewer.addArrow(refer.pcaY, refer.cenpot, 0.0, 1.0, 0.0, false, "arrow_Y");
-	viewer.addArrow(refer.pcaZ, refer.cenpot, 0.0, 0.0, 1.0, false, "arrow_Z");
+	viewer->addArrow(refer.pcaX, refer.cenpot, 1.0, 0.0, 0.0, false, "arrow_X_v1", v1);
+	viewer->addArrow(refer.pcaY, refer.cenpot, 0.0, 1.0, 0.0, false, "arrow_Y_v1", v1);
+	viewer->addArrow(refer.pcaZ, refer.cenpot, 0.0, 0.0, 1.0, false, "arrow_Z_v1", v1);
 
 	//align cloud phase
-	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> align_handler(align.transformedCloud, 255, 0, 0);  //输入的初始点云相关
-	viewer.addPointCloud(align.transformedCloud, align_handler, "cloud");
-	viewer.addCube(align.bboxT, align.bboxQ, align.whd(0), align.whd(1), align.whd(2), "bbox");
-	viewer.setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_REPRESENTATION, pcl::visualization::PCL_VISUALIZER_REPRESENTATION_WIREFRAME, "bbox");
-	viewer.setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_COLOR, 1.0, 0.0, 0.0, "bbox");
-	
-	viewer.addArrow(align.pcaX, align.cenpot, 1.0, 0.0, 0.0, false, "arrow_x");
-	viewer.addArrow(align.pcaY, align.cenpot, 0.0, 1.0, 0.0, false, "arrow_y");
-	viewer.addArrow(align.pcaZ, align.cenpot, 0.0, 0.0, 1.0, false, "arrow_z");
+	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> align_handler_v1(align.transformedCloud, 255, 0, 0);  //输入的初始点云相关
+	viewer->addPointCloud(align.transformedCloud, align_handler_v1, "cloud_v1", v1);
+	viewer->addCube(align.bboxT, align.bboxQ, align.whd(0), align.whd(1), align.whd(2), "bbox_v1", v1);
+	viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_REPRESENTATION, pcl::visualization::PCL_VISUALIZER_REPRESENTATION_WIREFRAME, "bbox_v1");
+	viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_COLOR, 1.0, 0.0, 0.0, "bbox_v1");
+
+	viewer->addArrow(align.pcaX, align.cenpot, 1.0, 0.0, 0.0, false, "arrow_x_v1", v1);
+	viewer->addArrow(align.pcaY, align.cenpot, 0.0, 1.0, 0.0, false, "arrow_y_v1", v1);
+	viewer->addArrow(align.pcaZ, align.cenpot, 0.0, 0.0, 1.0, false, "arrow_z_v1", v1);
 
 	//fundamental setting
-	viewer.addCoordinateSystem(0.5f*refer.sc);
-	viewer.setBackgroundColor(1.0, 1.0, 1.0);
+	viewer->addCoordinateSystem(0.5f*refer.sc);
+	viewer->setBackgroundColor(1.0, 1.0, 1.0, v1);
+	
 
-	while (!viewer.wasStopped())
+	cout << "********************ICP REGISTRATION PHASE********************" << endl;
+
+	pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;  //创建ICP的实例类
+	icp.setInputSource(align.cloud);
+	icp.setInputTarget(refer.cloud);
+	//设置对应点对之间的最大距离（此值对配准结果影响较大）。  
+	icp.setMaxCorrespondenceDistance(50);
+	// 设置两次变化矩阵之间的差值（一般设置为1e-10即可）
+	icp.setTransformationEpsilon(1e-10);
+	//设置收敛条件是均方误差和小于阈值， 停止迭代；
+	icp.setEuclideanFitnessEpsilon(0.01);
+	//设置最大迭代次数
+	icp.setMaximumIterations(10000);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr tempFinal(new pcl::PointCloud<pcl::PointXYZ>);
+	icp.align(*tempFinal);
+	
+	align.cloud = tempFinal;
+	cout << "*********----------SUB SPATIAL TRANSFORM PHASE----------*********" << endl;
+	spatialTF(align);
+	Eigen::Affine3f transform_rota = Eigen::Affine3f::Identity();
+	transform_rota.rotate(Eigen::AngleAxisf(M_PI, Eigen::Vector3f::UnitZ()));
+	//pcl::transformPointCloud(*align.transformedCloud, *align.transformedCloud, transform_rota);
+
+	//Eigen::Matrix4f transformation = icp.getFinalTransformation();
+	cout << "*********----------SUB ICP RESULT PHASE----------*********" << endl;
+	cout << "has converged: " << icp.hasConverged() << endl;
+
+	//Obtain the Euclidean fitness score (e.g.,the average of sum of squared distances from the source to the target) 
+	cout << "RMS : " << sqrt(icp.getFitnessScore()) << endl;
+	
+	
+
+	//Get the final transformation matrix estimated by the registration method. 
+	cout << icp.getFinalTransformation() << endl;
+
+
+
+
+	
+	//-------------------------ICP visualization-----------------------
+	//refer cloud phase
+	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> refer_handler_v2(refer.transformedCloud, 0, 255, 0); //转换到原点的点云相关
+	viewer->addPointCloud(refer.transformedCloud, refer_handler_v2, "transformCloud_v2", v2);
+	viewer->addCube(refer.bboxT, refer.bboxQ, refer.whd(0), refer.whd(1), refer.whd(2), "bbox1_v2", v2);
+	viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_REPRESENTATION, pcl::visualization::PCL_VISUALIZER_REPRESENTATION_WIREFRAME, "bbox1_v2");
+	viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_COLOR, 0.0, 1.0, 0.0, "bbox1_v2");
+
+	viewer->addArrow(refer.pcaX, refer.cenpot, 1.0, 0.0, 0.0, false, "arrow_X_v2", v2);
+	viewer->addArrow(refer.pcaY, refer.cenpot, 0.0, 1.0, 0.0, false, "arrow_Y_v2", v2);
+	viewer->addArrow(refer.pcaZ, refer.cenpot, 0.0, 0.0, 1.0, false, "arrow_Z_v2", v2);
+	
+	//align cloud phase
+	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> align_handler_v2(align.transformedCloud, 255, 0, 0);  //输入的初始点云相关
+	viewer->addPointCloud(align.transformedCloud, align_handler_v2, "cloud_v2", v2);
+	viewer->addCube(align.bboxT, align.bboxQ, align.whd(0), align.whd(1), align.whd(2), "bbox_v2", v2);
+	viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_REPRESENTATION, pcl::visualization::PCL_VISUALIZER_REPRESENTATION_WIREFRAME, "bbox_v2");
+	viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_COLOR, 1.0, 0.0, 0.0, "bbox_v2");
+	
+	viewer->addArrow(align.pcaX, align.cenpot, 1.0, 0.0, 0.0, false, "arrow_x_v2", v2);
+	viewer->addArrow(align.pcaY, align.cenpot, 0.0, 1.0, 0.0, false, "arrow_y_v2", v2);
+	viewer->addArrow(align.pcaZ, align.cenpot, 0.0, 0.0, 1.0, false, "arrow_z_v2", v2);
+	
+	//fundamental setting
+	viewer->addCoordinateSystem(0.5f*refer.sc);
+	viewer->setBackgroundColor(1.0, 1.0, 1.0, v2);
+
+	while (!viewer->wasStopped())
 	{
-		viewer.spinOnce(100);
+		viewer->spinOnce(100);
 	}
 
 	return 0;
