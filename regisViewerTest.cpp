@@ -10,6 +10,7 @@
 #include <pcl/common/transforms.h>
 #include <pcl/common/common.h>
 #include <pcl/point_cloud.h>
+#include <pcl/visualization/registration_visualizer.h>
 
 using namespace std;
 using namespace pcl;
@@ -164,16 +165,12 @@ void keyboardEvent(const pcl::visualization::KeyboardEvent &event, void *nothing
 int main()
 {
 
-	
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_sources(new pcl::PointCloud<pcl::PointXYZ>);
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_target(new pcl::PointCloud<pcl::PointXYZ>);
 	pcl::PointCloud<pcl::PointXYZ>::Ptr final(new pcl::PointCloud<pcl::PointXYZ>);
 
 	pcl::io::loadPCDFile("proj-final-fbx-dian.pcd", *cloud_target);
 	pcl::io::loadPCDFile("huagong-final-1.5.pcd", *cloud_sources);
-
-	
-
 
 
 
@@ -203,53 +200,15 @@ int main()
 	icp.setMaximumIterations(100);
 	icp.align(*final);
 
-	
-	
 
-	boost::shared_ptr<pcl::visualization::PCLVisualizer> view(new pcl::visualization::PCLVisualizer("icp test"));  //定义窗口共享指针
-	int v1; //定义两个窗口v1，v2，窗口v1用来显示初始位置，v2用以显示配准过程
-	int v2;
-	view->createViewPort(0.0, 0.0, 0.5, 1.0, v1);  //四个窗口参数分别对应x_min,y_min,x_max.y_max.
-	view->createViewPort(0.5, 0.0, 1.0, 1.0, v2);
 
-	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> sources_cloud_color(align.cloud, 250, 0, 0); //设置源点云的颜色为红色
-	view->addPointCloud(align.cloud, sources_cloud_color, "sources_cloud_v1", v1);
-	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> target_cloud_color(refer.cloud, 0, 250, 0);  //目标点云为绿色
-	view->addPointCloud(refer.cloud, target_cloud_color, "target_cloud_v1", v1); //将点云添加到v1窗口
+	//pcl::RegistrationVisualizer<pcl::PointXYZ, pcl::PointXYZ> viewer ;
+	boost::shared_ptr<pcl::RegistrationVisualizer<pcl::PointXYZ, pcl::PointXYZ>> viewer(new pcl::RegistrationVisualizer<pcl::PointXYZ, pcl::PointXYZ>);
+	viewer->setRegistration(icp);
+	viewer->setMaximumDisplayedCorrespondences(1000000);
+	viewer->startDisplay();
 
-	view->setBackgroundColor(0.0, 0.05, 0.05, v1); //设着两个窗口的背景色
-	view->setBackgroundColor(0.05, 0.05, 0.05, v2);
-
-	view->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "sources_cloud_v1");  //设置显示点的大小
-	view->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "target_cloud_v1");
-
-	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ>aligend_cloud_color(final, 255, 255, 255);  //设置配准结果为白色
-	view->addPointCloud(final, aligend_cloud_color, "aligend_cloud_v2", v2);
-	view->addPointCloud(refer.cloud, target_cloud_color, "target_cloud_v2", v2);
-
-	view->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "aligend_cloud_v2");
-	view->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "target_cloud_v2");
-
-	view->registerKeyboardCallback(&keyboardEvent, (void*)NULL);  //设置键盘回调函数
-	int iterations = 0; //迭代次数
-	while (!view->wasStopped())
-	{
-		view->spinOnce();  //运行视图
-		if (next_iteration)
-		{
-			icp.align(*final);  //icp计算
-			cout << "has conveged:" << icp.hasConverged() << "score:" << icp.getFitnessScore() << endl;
-			cout << "matrix:\n" << icp.getFinalTransformation() << endl;
-			cout << "iteration = " << ++iterations;
-			/*... 如果icp.hasConverged=1,则说明本次配准成功，icp.getFinalTransformation()可输出变换矩阵   ...*/
-			if (iterations == 1000)  //设置最大迭代次数
-				return 0;
-			view->updatePointCloud(final, aligend_cloud_color, "aligend_cloud_v2");
-
-		}
-		next_iteration = false;  //本次迭代结束，等待触发
-
-	}
-
+	system("pause");
+	return 0;
 
 }

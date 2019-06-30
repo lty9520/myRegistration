@@ -21,6 +21,7 @@ VTK_MODULE_INIT(vtkRenderingFreeType);
 #include <pcl/io/vtk_lib_io.h>//loadPolygonFileOBJ所属头文件；
 #include <Eigen/src/StlSupport/details.h>
 #include <pcl/registration/icp.h>
+#include <pcl/common/time.h>
 
 using namespace std;
 using namespace pcl;
@@ -41,7 +42,9 @@ struct myPC
 {
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud;
 	pcl::PointCloud<pcl::PointXYZ>::Ptr transformedCloud;
+	//旋转矩阵
 	Eigen::Quaternionf bboxQ;
+	//平移矩阵
 	Eigen::Vector3f bboxT;
 	pcl::PointXYZ cenpot, pcaX, pcaY, pcaZ;
 	Eigen::Vector3f whd;
@@ -193,6 +196,8 @@ void scaleTF(myPC & ori_cloud, float scale)
 
 int main()
 {
+
+	pcl::StopWatch time;
 	//参考点云
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_refer(new pcl::PointCloud<pcl::PointXYZ>);
 	//对齐点云
@@ -312,7 +317,7 @@ int main()
 
 
 
-
+	cout << "running time : " << time.getTime() << endl;
 	
 	//-------------------------ICP visualization-----------------------
 	//refer cloud phase
