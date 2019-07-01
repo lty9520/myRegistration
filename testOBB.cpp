@@ -25,12 +25,27 @@ VTK_MODULE_INIT(vtkRenderingFreeType);
 #include <pcl/registration/icp.h>
 
 
+void grivtyAct(pcl::PointCloud<pcl::PointXYZ>::Ptr & in_cloud, pcl::PointCloud<pcl::PointXYZ>::Ptr & out_cloud, Eigen::Vector3f center)
+{
+	for (int i = 0; i < in_cloud->size(); i++)
+	{
+		out_cloud->points[i].x = in_cloud->points[i].x - center(0);
+		out_cloud->points[i].y = in_cloud->points[i].y - center(1);
+		out_cloud->points[i].z = in_cloud->points[i].z - center(2);
+	}
+
+}
+
+
 int main()
 {
 	
 	//读取
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>());
-	pcl::io::loadPCDFile("duidiegong.pcd", *cloud);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr grvity_cloud(new pcl::PointCloud<pcl::PointXYZ>());
+	pcl::io::loadPCDFile("chaijie-17.pcd", *cloud);
+
+	grvity_cloud = cloud;
 	
 	//实例化一个Momentof...
 	pcl::MomentOfInertiaEstimation <pcl::PointXYZ> feature_extractor;
@@ -56,6 +71,18 @@ int main()
 	feature_extractor.getEigenValues(major_value, middle_value, minor_value);
 	feature_extractor.getEigenVectors(major_vector, middle_vector, minor_vector);
 	feature_extractor.getMassCenter(mass_center);
+	
+	cout << "gravity center : " << mass_center(0) << ", " << mass_center(1) << ", " << mass_center(2) << endl;
+	grivtyAct(cloud, grvity_cloud, mass_center);
+
+	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer_gravity(new pcl::visualization::PCLVisualizer("grvity viewer"));
+	viewer_gravity->addCoordinateSystem(1.0);
+	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> red(cloud, 255, 0, 0);
+	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> green(grvity_cloud, 0, 255, 0);
+	viewer_gravity->addPointCloud(cloud, red, "origin cloud");
+	viewer_gravity->addPointCloud(grvity_cloud, green, "gravity act point cloud");
+
+	
 	//显示
 	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer(new pcl::visualization::PCLVisualizer("3D Viewer"));
 	viewer->setBackgroundColor(0, 0, 0);
@@ -65,7 +92,7 @@ int main()
 	//addCube方法
 	//viewer->addCube(min_point_AABB.x, max_point_AABB.x, min_point_AABB.y, max_point_AABB.y, min_point_AABB.z, max_point_AABB.z, 1.0, 1.0, 0.0, "AABB");//AABB盒子
 
-	Eigen::Vector3f position(position_OBB.x, position_OBB.y, position_OBB.z);
+	Eigen::Vector3f position(position_OBB.x - mass_center(0), position_OBB.y - mass_center(1), position_OBB.z - mass_center(2));
 	Eigen::Quaternionf quat(rotational_matrix_OBB);
 	viewer->addCube(position, quat, max_point_OBB.x - min_point_OBB.x, max_point_OBB.y - min_point_OBB.y, max_point_OBB.z - min_point_OBB.z, "OBB");//OBB盒子
 																																					
