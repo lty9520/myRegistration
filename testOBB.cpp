@@ -43,7 +43,7 @@ int main()
 	//读取
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>());
 	pcl::PointCloud<pcl::PointXYZ>::Ptr grvity_cloud(new pcl::PointCloud<pcl::PointXYZ>());
-	pcl::io::loadPCDFile("chaijie-17.pcd", *cloud);
+	pcl::io::loadPCDFile("huagong-final-1.5.pcd", *cloud);
 
 	grvity_cloud = cloud;
 	
@@ -64,6 +64,12 @@ int main()
 	Eigen::Vector3f major_vector, middle_vector, minor_vector;
 	Eigen::Vector3f mass_center;
 	//计算描述符和其他的特征
+
+	feature_extractor.getMassCenter(mass_center);
+	
+	cout << "gravity center : " << mass_center(0) << ", " << mass_center(1) << ", " << mass_center(2) << endl;
+	grivtyAct(cloud, grvity_cloud, mass_center);
+
 	feature_extractor.getMomentOfInertia(moment_of_inertia);
 	feature_extractor.getEccentricity(eccentricity);
 	feature_extractor.getAABB(min_point_AABB, max_point_AABB);
@@ -71,9 +77,6 @@ int main()
 	feature_extractor.getEigenValues(major_value, middle_value, minor_value);
 	feature_extractor.getEigenVectors(major_vector, middle_vector, minor_vector);
 	feature_extractor.getMassCenter(mass_center);
-	
-	cout << "gravity center : " << mass_center(0) << ", " << mass_center(1) << ", " << mass_center(2) << endl;
-	grivtyAct(cloud, grvity_cloud, mass_center);
 
 	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer_gravity(new pcl::visualization::PCLVisualizer("grvity viewer"));
 	viewer_gravity->addCoordinateSystem(1.0);
