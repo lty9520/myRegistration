@@ -212,18 +212,18 @@ int main()
 	////创建mesh对象
 	//pcl::PolygonMesh mesh;
 	////读取polygon文件，obj格式读取为mesh
-	//pcl::io::loadPolygonFile("chaijie-17.obj", mesh);
+	//pcl::io::loadPolygonFile("DUIDIEGONG-XIN.obj", mesh);
 	//
 	//
 	//
 	////将mesh格式转换为PointCloud格式 方便读取
 	//pcl::fromPCLPointCloud2(mesh.cloud, *cloud_align);
 	////转存为可读取的PCD文件格式
-	//pcl::io::savePCDFileASCII("chaijie-17.pcd", *cloud_align);
+	//pcl::io::savePCDFileASCII("DUIDIEGONG-XIN.pcd", *cloud_align);
 	cout << "********************LOAD FILES PHASE********************" << endl;
 	//refer-scale 1.6999	align-scale  128.799
-	pcl::io::loadPCDFile("duidiegong.pcd", *cloud_refer);
-	pcl::io::loadPCDFile("chaijie-17.pcd", *cloud_align);
+	pcl::io::loadPCDFile("duidiegong-xin-zhongxin.pcd", *cloud_refer);
+	pcl::io::loadPCDFile("chaijie17-zhongxin.pcd", *cloud_align);
 
 	cout << "Reference Point cloud data: " << cloud_refer->points.size() << " points" << endl;
 	cout << "Aligned Point cloud data: " << cloud_align->points.size() << " points" << endl;
@@ -278,6 +278,10 @@ int main()
 	//fundamental setting
 	viewer->addCoordinateSystem(0.5f*refer.sc);
 	viewer->setBackgroundColor(1.0, 1.0, 1.0, v1);
+
+	Eigen::Affine3f transform_rota = Eigen::Affine3f::Identity();
+	transform_rota.rotate(Eigen::AngleAxisf(M_PI * 2/ 3, Eigen::Vector3f::UnitZ()));
+	//pcl::transformPointCloud(*align.transformedCloud, *align.transformedCloud, transform_rota);
 	
 
 	cout << "********************ICP REGISTRATION PHASE********************" << endl;
@@ -299,8 +303,8 @@ int main()
 	align.cloud = tempFinal;
 	cout << "*********----------SUB SPATIAL TRANSFORM PHASE----------*********" << endl;
 	spatialTF(align);
-	Eigen::Affine3f transform_rota = Eigen::Affine3f::Identity();
-	transform_rota.rotate(Eigen::AngleAxisf(M_PI, Eigen::Vector3f::UnitZ()));
+	//Eigen::Affine3f transform_rota = Eigen::Affine3f::Identity();
+	//transform_rota.rotate(Eigen::AngleAxisf(M_PI, Eigen::Vector3f::UnitZ()));
 	//pcl::transformPointCloud(*align.transformedCloud, *align.transformedCloud, transform_rota);
 
 	//Eigen::Matrix4f transformation = icp.getFinalTransformation();

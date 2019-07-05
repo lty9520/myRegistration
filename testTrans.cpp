@@ -68,7 +68,7 @@ int main()
 	myMIE myalign;
 
 	pcl::io::loadPCDFile("chaijie-17.pcd", *align_cloud);
-	pcl::io::loadPCDFile("duidiegong.pcd", *refer_cloud);
+	pcl::io::loadPCDFile("DUIDIEGONG-XIN.pcd", *refer_cloud);
 
 	myrefer.cloud = refer_cloud;
 	myalign.cloud = align_cloud;
@@ -90,6 +90,9 @@ int main()
 	//重心化
 	grivtyAct(myrefer.cloud, myrefer.cloud, myrefer.mass_center);
 	grivtyAct(myalign.cloud, myalign.cloud, myalign.mass_center);
+
+	pcl::io::savePCDFile("chaijie17-zhongxin.pcd", *myalign.cloud);
+	pcl::io::savePCDFile("duidiegong-xin-zhongxin.pcd", *myrefer.cloud);
 
 	//重新计算各特征值
 	
