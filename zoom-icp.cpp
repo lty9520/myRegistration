@@ -5,7 +5,7 @@
 
 VTK_MODULE_INIT(vtkRenderingOpenGL);  //解决方法参考【http://tieba.baidu.com/p/4551950404#93116920200l】
 
-//VTK_MODULE_INIT(vtkRenderingOpenGL2);  //自己的PCL1.8.1安装后产生的是OpenGL,所以这一句需要改成OpenGL.
+									  //VTK_MODULE_INIT(vtkRenderingOpenGL2);  //自己的PCL1.8.1安装后产生的是OpenGL,所以这一句需要改成OpenGL.
 
 VTK_MODULE_INIT(vtkInteractionStyle); //外部依赖项添加opengl32.lib（我自己的还要添加vfw32.lib你的不知道要不要）
 
@@ -22,21 +22,23 @@ VTK_MODULE_INIT(vtkRenderingFreeType);
 #include <Eigen/src/StlSupport/details.h>
 #include <pcl/registration/icp.h>
 #include <pcl/common/time.h>
+#include <pcl/features/moment_of_inertia_estimation.h>
 
 using namespace std;
 using namespace pcl;
 
 /*
-	myPointCloud(myPC)重新封装点云格式
-		/
-		|	cloud → pcl::PointXYZ格式点云数据
-		|	transformedCloud → pcl::PointXYZ格式点云数据
-	   /	bboxQ → 四元数(rotation of bouding box) 
-	   \	bboxT → 三维向量(translation of bouding box)
-		|	cenpot → 形心点
-		|	pcaX、pcaY、pcaZ → 主方向点
-		|	whd(width&height&depth) → 三维向量
-		\
+myPointCloud(myPC)重新封装点云格式
+/
+|	cloud → pcl::PointXYZ格式点云数据
+|	transformedCloud → pcl::PointXYZ格式点云数据
+/	bboxQ → 四元数(rotation of bouding box)
+\	bboxT → 三维向量(translation of bouding box)
+|	cenpot → 形心点
+|	pcaX、pcaY、pcaZ → 主方向点
+|	whd(width&height&depth) → 三维向量
+|	mass_center → 质心点
+\
 */
 struct myPC
 {
@@ -49,6 +51,7 @@ struct myPC
 	pcl::PointXYZ cenpot, pcaX, pcaY, pcaZ;
 	Eigen::Vector3f whd;
 	float sc;
+	Eigen::Vector3f mass_center;
 };
 
 //************************************
@@ -59,7 +62,7 @@ struct myPC
 // Qualifier:
 // Parameter: myPC & pointcloud → the point cloud need to be transformed to (0,0,0)
 //************************************
-void spatialTF(myPC & pointcloud)
+void calcParas(myPC & pointcloud)
 {
 	Eigen::Vector4f pcaCentroid;
 	//pcl::PointCloud<pcl::PointXYZ>::Ptr ori_cloud(new pcl::PointCloud<pcl::PointXYZ>);
@@ -95,19 +98,19 @@ void spatialTF(myPC & pointcloud)
 	std::cout << "变换矩阵tm(4x4):\n" << tm << std::endl;
 	std::cout << "逆变矩阵tm'(4x4):\n" << tm_inv << std::endl;
 
-	pcl::PointCloud<pcl::PointXYZ>::Ptr tfCloud(new pcl::PointCloud<pcl::PointXYZ>);
-	pointcloud.transformedCloud = tfCloud;
-	pcl::transformPointCloud(*pointcloud.cloud, *pointcloud.transformedCloud, tm);
+	//pcl::PointCloud<pcl::PointXYZ>::Ptr tfCloud(new pcl::PointCloud<pcl::PointXYZ>);
+	//pointcloud.transformedCloud = tfCloud;
+	//pcl::transformPointCloud(*pointcloud.cloud, *pointcloud.transformedCloud, tm);
 
 	pcl::PointXYZ min_p1, max_p1;
 	Eigen::Vector3f c1, c;
-	pcl::getMinMax3D(*pointcloud.transformedCloud, min_p1, max_p1);
+	pcl::getMinMax3D(*pointcloud.cloud, min_p1, max_p1);
 	c1 = 0.5f*(min_p1.getVector3fMap() + max_p1.getVector3fMap());
 
 	std::cout << "型心c1(3x1):\n" << c1 << std::endl;
 
 	Eigen::Affine3f tm_inv_aff(tm_inv);
-	pcl::transformPoint(c1, c, tm_inv_aff);
+	//pcl::transformPoint(c1, c, tm_inv_aff);
 
 	Eigen::Vector3f whd;
 	pointcloud.whd = max_p1.getVector3fMap() - min_p1.getVector3fMap();
@@ -125,6 +128,11 @@ void spatialTF(myPC & pointcloud)
 	const Eigen::Quaternionf bboxQ(tm_inv.block<3, 3>(0, 0));
 	const Eigen::Vector3f    bboxT(c);
 
+
+	
+	
+
+	/****
 
 	//变换到原点的点云主方向
 	//pcl::PointXYZ op;
@@ -167,8 +175,28 @@ void spatialTF(myPC & pointcloud)
 	pcZ.x = pointcloud.sc * eigenVectorsPCA(0, 2) + cp.x;
 	pcZ.y = pointcloud.sc * eigenVectorsPCA(1, 2) + cp.y;
 	pcZ.z = pointcloud.sc * eigenVectorsPCA(2, 2) + cp.z;
+
+	*/
 }
 
+
+void grivtyAct(myPC & pointcloud)
+{
+	//实例化一个Momentof...
+	pcl::MomentOfInertiaEstimation <pcl::PointXYZ> feature_extractor;
+	feature_extractor.setInputCloud(pointcloud.cloud);
+	feature_extractor.compute();
+
+	feature_extractor.getMassCenter(pointcloud.mass_center);
+	pointcloud.transformedCloud = pointcloud.cloud;
+	for (int i = 0; i < pointcloud.cloud->size(); i++)
+	{
+		pointcloud.transformedCloud->points[i].x = pointcloud.cloud->points[i].x - pointcloud.mass_center(0);
+		pointcloud.transformedCloud->points[i].y = pointcloud.cloud->points[i].y - pointcloud.mass_center(1);
+		pointcloud.transformedCloud->points[i].z = pointcloud.cloud->points[i].z - pointcloud.mass_center(2);
+	}
+
+}
 
 //************************************
 // Method:    scaleTF
@@ -187,10 +215,10 @@ void scaleTF(myPC & ori_cloud, float scale)
 	cout << "变换矩阵：" << endl;
 	cout << transform_scale.matrix() << endl;
 
-	pcl::PointCloud<pcl::PointXYZ>::Ptr tfCloud(new pcl::PointCloud<pcl::PointXYZ>);
-	ori_cloud.transformedCloud = tfCloud;
-	pcl::transformPointCloud(*ori_cloud.cloud, *ori_cloud.transformedCloud, transform_scale);
-	ori_cloud.cloud = ori_cloud.transformedCloud;
+	//pcl::PointCloud<pcl::PointXYZ>::Ptr tfCloud(new pcl::PointCloud<pcl::PointXYZ>);
+	//ori_cloud.transformedCloud = tfCloud;
+	pcl::transformPointCloud(*ori_cloud.transformedCloud, *ori_cloud.transformedCloud, transform_scale);
+	//ori_cloud.cloud = ori_cloud.transformedCloud;
 
 }
 
@@ -212,18 +240,18 @@ int main()
 	////创建mesh对象
 	//pcl::PolygonMesh mesh;
 	////读取polygon文件，obj格式读取为mesh
-	//pcl::io::loadPolygonFile("chaijie-65-rotatest.obj", mesh);
+	//pcl::io::loadPolygonFile("abaqus-test.obj", mesh);
 	//
 	//
 	//
 	////将mesh格式转换为PointCloud格式 方便读取
 	//pcl::fromPCLPointCloud2(mesh.cloud, *cloud_align);
 	////转存为可读取的PCD文件格式
-	//pcl::io::savePCDFileASCII("chaijie-65-rotatest.pcd", *cloud_align);
-	//cout << "********************LOAD FILES PHASE********************" << endl;
+	//pcl::io::savePCDFileASCII("abaqus-test.pcd", *cloud_align);
+	cout << "********************LOAD FILES PHASE********************" << endl;
 	//refer-scale 1.6999	align-scale  128.799
-	pcl::io::loadPCDFile("abaqus-zhongxin.pcd", *cloud_refer);
-	pcl::io::loadPCDFile("chaijie-65-rotatest-zhongxin.pcd", *cloud_align);
+	pcl::io::loadPCDFile("abaqus.pcd", *cloud_refer);
+	pcl::io::loadPCDFile("chaijie-65-rotatest.pcd", *cloud_align);
 
 	cout << "Reference Point cloud data: " << cloud_refer->points.size() << " points" << endl;
 	cout << "Aligned Point cloud data: " << cloud_align->points.size() << " points" << endl;
@@ -233,29 +261,41 @@ int main()
 	refer.cloud = cloud_refer;
 	align.cloud = cloud_align;
 
-	cout << "********************SPATIAL TRANSFORM PHASE********************" << endl;
-	//对refer和align点云进行空间变换到原点位置
+	
+
+
+	cout << "********************CALCULATE PARAMETERS PHASE********************" << endl;
+	//计算两个点云运算所需要的一些参数
 	//spatialTF(refer);
 	//spatialTF(align);
+	calcParas(align);
+	calcParas(refer);
+
+
+	cout << "********************GRAVITY PROCESS PHASE********************" << endl;
+
+	//对两个点云进行重心化处理
+	grivtyAct(refer);
+	grivtyAct(align);
 
 	cout << "********************SCALE TRANSFORM PHASE********************" << endl;
 	//对对齐点云依照参考点云的尺寸大小进行缩放的倍数
 
-	
+
 	//spatialTF(refer);
 	//spatialTF(align);
 
-	
 
+	//变换倍数
 	float sca = refer.sc / align.sc;
 	//将对齐点云依据缩放倍数进行缩放并变换到坐标原点
-	//scaleTF(align, sca);
+	scaleTF(align, sca);
 	//spatialTF(align);
 
 	//-------------------------spatial visualization-----------------------
 	//refer cloud phase
-	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> refer_handler_v1(refer.cloud, 0, 255, 0); //转换到原点的点云相关
-	viewer->addPointCloud(refer.cloud, refer_handler_v1, "transformCloud_v1", v1);
+	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> refer_handler_v1(refer.transformedCloud, 0, 255, 0); //转换到原点的点云相关
+	viewer->addPointCloud(refer.transformedCloud, refer_handler_v1, "transformCloud_v1", v1);
 	//viewer->addCube(refer.bboxT, refer.bboxQ, refer.whd(0), refer.whd(1), refer.whd(2), "bbox1_v1", v1);
 	//viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_REPRESENTATION, pcl::visualization::PCL_VISUALIZER_REPRESENTATION_WIREFRAME, "bbox1_v1");
 	//viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_COLOR, 0.0, 1.0, 0.0, "bbox1_v1");
@@ -265,8 +305,8 @@ int main()
 	//viewer->addArrow(refer.pcaZ, refer.cenpot, 0.0, 0.0, 1.0, false, "arrow_Z_v1", v1);
 
 	//align cloud phase
-	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> align_handler_v1(align.cloud, 255, 0, 0);  //输入的初始点云相关
-	viewer->addPointCloud(align.cloud, align_handler_v1, "cloud_v1", v1);
+	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> align_handler_v1(align.transformedCloud, 255, 0, 0);  //输入的初始点云相关
+	viewer->addPointCloud(align.transformedCloud, align_handler_v1, "cloud_v1", v1);
 	//viewer->addCube(align.bboxT, align.bboxQ, align.whd(0), align.whd(1), align.whd(2), "bbox_v1", v1);
 	//viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_REPRESENTATION, pcl::visualization::PCL_VISUALIZER_REPRESENTATION_WIREFRAME, "bbox_v1");
 	//viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_COLOR, 1.0, 0.0, 0.0, "bbox_v1");
@@ -279,15 +319,15 @@ int main()
 	viewer->addCoordinateSystem(0.5f*refer.sc);
 	viewer->setBackgroundColor(1.0, 1.0, 1.0, v1);
 
-	
-	
+
+
 
 	cout << "********************ICP REGISTRATION PHASE********************" << endl;
 
 
 	pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;  //创建ICP的实例类
-	icp.setInputSource(align.cloud);
-	icp.setInputTarget(refer.cloud);
+	icp.setInputSource(align.transformedCloud);
+	icp.setInputTarget(refer.transformedCloud);
 	//设置对应点对之间的最大距离（此值对配准结果影响较大）。  
 	icp.setMaxCorrespondenceDistance(1);
 	// 设置两次变化矩阵之间的差值（一般设置为1e-10即可）
@@ -298,14 +338,14 @@ int main()
 	icp.setMaximumIterations(100000000);
 	pcl::PointCloud<pcl::PointXYZ>::Ptr tempFinal(new pcl::PointCloud<pcl::PointXYZ>);
 	icp.align(*tempFinal);
-	
-	align.cloud = tempFinal;
+
+	align.transformedCloud = tempFinal;
 	cout << "*********----------SUB SPATIAL TRANSFORM PHASE----------*********" << endl;
 	//spatialTF(align);
 	Eigen::Affine3f transform_rota = Eigen::Affine3f::Identity();
 	transform_rota.rotate(Eigen::AngleAxisf(M_PI, Eigen::Vector3f::UnitY()));
 	Eigen::Affine3f transform_rota1 = Eigen::Affine3f::Identity();
-	transform_rota1.rotate(Eigen::AngleAxisf( - M_PI / 6, Eigen::Vector3f::UnitZ()));
+	transform_rota1.rotate(Eigen::AngleAxisf(-M_PI / 6, Eigen::Vector3f::UnitZ()));
 	//pcl::transformPointCloud(*align.transformedCloud, *align.transformedCloud, transform_rota);
 	//pcl::transformPointCloud(*align.transformedCloud, *align.transformedCloud, transform_rota1);
 
@@ -315,8 +355,8 @@ int main()
 
 	//Obtain the Euclidean fitness score (e.g.,the average of sum of squared distances from the source to the target) 
 	cout << "RMS : " << sqrt(icp.getFitnessScore()) << endl;
-	
-	
+
+
 
 	//Get the final transformation matrix estimated by the registration method. 
 	cout << icp.getFinalTransformation() << endl;
@@ -324,11 +364,11 @@ int main()
 
 
 	cout << "running time : " << time.getTime() << endl;
-	
+
 	//-------------------------ICP visualization-----------------------
 	//refer cloud phase
-	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> refer_handler_v2(refer.cloud, 0, 255, 0); //转换到原点的点云相关
-	viewer->addPointCloud(refer.cloud, refer_handler_v2, "transformCloud_v2", v2);
+	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> refer_handler_v2(refer.transformedCloud, 0, 255, 0); //转换到原点的点云相关
+	viewer->addPointCloud(refer.transformedCloud, refer_handler_v2, "transformCloud_v2", v2);
 	//viewer->addCube(refer.bboxT, refer.bboxQ, refer.whd(0), refer.whd(1), refer.whd(2), "bbox1_v2", v2);
 	//viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_REPRESENTATION, pcl::visualization::PCL_VISUALIZER_REPRESENTATION_WIREFRAME, "bbox1_v2");
 	//viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_COLOR, 0.0, 1.0, 0.0, "bbox1_v2");
@@ -336,10 +376,10 @@ int main()
 	//viewer->addArrow(refer.pcaX, refer.cenpot, 1.0, 0.0, 0.0, false, "arrow_X_v2", v2);
 	//viewer->addArrow(refer.pcaY, refer.cenpot, 0.0, 1.0, 0.0, false, "arrow_Y_v2", v2);
 	//viewer->addArrow(refer.pcaZ, refer.cenpot, 0.0, 0.0, 1.0, false, "arrow_Z_v2", v2);
-	
+
 	//align cloud phase
-	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> align_handler_v2(align.cloud, 255, 0, 0);  //输入的初始点云相关
-	viewer->addPointCloud(align.cloud, align_handler_v2, "cloud_v2", v2);
+	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> align_handler_v2(align.transformedCloud, 255, 0, 0);  //输入的初始点云相关
+	viewer->addPointCloud(align.transformedCloud, align_handler_v2, "cloud_v2", v2);
 	//viewer->addCube(align.bboxT, align.bboxQ, align.whd(0), align.whd(1), align.whd(2), "bbox_v2", v2);
 	//viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_REPRESENTATION, pcl::visualization::PCL_VISUALIZER_REPRESENTATION_WIREFRAME, "bbox_v2");
 	//viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_COLOR, 1.0, 0.0, 0.0, "bbox_v2");
@@ -347,7 +387,7 @@ int main()
 	//viewer->addArrow(align.pcaX, align.cenpot, 1.0, 0.0, 0.0, false, "arrow_x_v2", v2);
 	//viewer->addArrow(align.pcaY, align.cenpot, 0.0, 1.0, 0.0, false, "arrow_y_v2", v2);
 	//viewer->addArrow(align.pcaZ, align.cenpot, 0.0, 0.0, 1.0, false, "arrow_z_v2", v2);
-	
+
 	//fundamental setting
 	viewer->addCoordinateSystem(0.5f*refer.sc);
 	viewer->setBackgroundColor(1.0, 1.0, 1.0, v2);

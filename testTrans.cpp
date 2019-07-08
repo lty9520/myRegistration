@@ -67,8 +67,8 @@ int main()
 	myMIE myrefer;
 	myMIE myalign;
 
-	pcl::io::loadPCDFile("chaijie-17.pcd", *align_cloud);
-	pcl::io::loadPCDFile("DUIDIEGONG-XIN.pcd", *refer_cloud);
+	pcl::io::loadPCDFile("chaijie-65-rotatest.pcd", *align_cloud);
+	pcl::io::loadPCDFile("abaqus.pcd", *refer_cloud);
 
 	myrefer.cloud = refer_cloud;
 	myalign.cloud = align_cloud;
@@ -91,8 +91,9 @@ int main()
 	grivtyAct(myrefer.cloud, myrefer.cloud, myrefer.mass_center);
 	grivtyAct(myalign.cloud, myalign.cloud, myalign.mass_center);
 
-	pcl::io::savePCDFile("chaijie17-zhongxin.pcd", *myalign.cloud);
-	pcl::io::savePCDFile("duidiegong-xin-zhongxin.pcd", *myrefer.cloud);
+	
+	//pcl::io::savePCDFile("abaqus-zhongxin.pcd", *myrefer.cloud);
+	pcl::io::savePCDFile("chaijie-65-rotatest-zhongxin.pcd", *myalign.cloud);
 
 	//重新计算各特征值
 	
