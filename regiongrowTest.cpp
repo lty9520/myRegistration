@@ -75,7 +75,7 @@ int main()
 	//reg.setIndices (indices);
 	reg.setInputNormals(normals);
 	reg.setSmoothnessThreshold(3.0 / 180.0 * M_PI);
-	reg.setCurvatureThreshold(0.01);
+	reg.setCurvatureThreshold(0.5);
 
 	std::vector <pcl::PointIndices> clusters;
 	reg.extract(clusters);

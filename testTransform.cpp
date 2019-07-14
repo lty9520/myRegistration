@@ -212,18 +212,20 @@ int main()
 	////创建mesh对象
 	//pcl::PolygonMesh mesh;
 	////读取polygon文件，obj格式读取为mesh
-	//pcl::io::loadPolygonFile("chaijie-65-rotatest.obj", mesh);
+	//pcl::io::loadPolygonFile("zhengti-dianyun.obj", mesh);
 	//
 	//
 	//
 	////将mesh格式转换为PointCloud格式 方便读取
 	//pcl::fromPCLPointCloud2(mesh.cloud, *cloud_align);
 	////转存为可读取的PCD文件格式
-	//pcl::io::savePCDFileASCII("chaijie-65-rotatest.pcd", *cloud_align);
-	//cout << "********************LOAD FILES PHASE********************" << endl;
+	//pcl::io::savePCDFileASCII("zhengti-dianyun.pcd", *cloud_align);
+
+
+	cout << "********************LOAD FILES PHASE********************" << endl;
 	//refer-scale 1.6999	align-scale  128.799
-	pcl::io::loadPCDFile("abaqus-zhongxin.pcd", *cloud_refer);
-	pcl::io::loadPCDFile("chaijie-65-rotatest-zhongxin.pcd", *cloud_align);
+	pcl::io::loadPCDFile("zhengti-abaqus-zhongxin.pcd", *cloud_refer);
+	pcl::io::loadPCDFile("zhengti-dianyun-zhongxin.pcd", *cloud_align);
 
 	cout << "Reference Point cloud data: " << cloud_refer->points.size() << " points" << endl;
 	cout << "Aligned Point cloud data: " << cloud_align->points.size() << " points" << endl;
