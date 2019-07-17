@@ -240,18 +240,21 @@ int main()
 	//创建mesh对象
 	pcl::PolygonMesh mesh;
 	//读取polygon文件，obj格式读取为mesh
-	pcl::io::loadPolygonFile("chaijie-65-rotatest-zoom.obj", mesh);
+	pcl::io::loadPolygonFile("3.obj", mesh);
 	
 	
 	
 	//将mesh格式转换为PointCloud格式 方便读取
 	pcl::fromPCLPointCloud2(mesh.cloud, *cloud_align);
 	//转存为可读取的PCD文件格式
-	pcl::io::savePCDFileASCII("chaijie-65-rotatest-zoom.pcd", *cloud_align);
+	pcl::io::savePCDFileASCII("3.pcd", *cloud_align);
+
+
+
 	cout << "********************LOAD FILES PHASE********************" << endl;
 	//refer-scale 1.6999	align-scale  128.799
-	pcl::io::loadPCDFile("abaqus.pcd", *cloud_refer);
-	pcl::io::loadPCDFile("chaijie-65-rotatest.pcd", *cloud_align);
+	pcl::io::loadPCDFile("3.pcd", *cloud_refer);
+	pcl::io::loadPCDFile("chaijie17-zhongxin.pcd", *cloud_align);
 
 	cout << "Reference Point cloud data: " << cloud_refer->points.size() << " points" << endl;
 	cout << "Aligned Point cloud data: " << cloud_align->points.size() << " points" << endl;
@@ -291,12 +294,12 @@ int main()
 	//将对齐点云依据缩放倍数进行缩放并变换到坐标原点
 	scaleTF(align, sca);
 	//spatialTF(align);
-	pcl::io::savePCDFileASCII("abaqus-scale.pcd", *refer.transformedCloud);
-	pcl::io::savePCDFileASCII("chaijie-65-rotatest-zoom-scale.pcd", *align.transformedCloud);
+	pcl::io::savePCDFileASCII("3-zhongxin-scale.pcd", *refer.transformedCloud);
+	pcl::io::savePCDFileASCII("chaijie-17-zhongxin-scale.pcd", *align.transformedCloud);
 
 
-	pcl::io::loadPCDFile("abaqus-scale.pcd", *cloud_refer);
-	pcl::io::loadPCDFile("chaijie-65-rotatest-zoom-scale.pcd", *cloud_align);
+	pcl::io::loadPCDFile("1-zhongxin-scale.pcd", *cloud_refer);
+	pcl::io::loadPCDFile("chaijie-17-zhongxin-scale.pcd", *cloud_align);
 	refer.transformedCloud = cloud_refer;
 	align.transformedCloud = cloud_align;
 

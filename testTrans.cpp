@@ -67,7 +67,7 @@ int main()
 	myMIE myrefer;
 	myMIE myalign;
 
-	pcl::io::loadPCDFile("zhengti-dianyun.pcd", *align_cloud);
+	pcl::io::loadPCDFile("1.pcd", *align_cloud);
 	pcl::io::loadPCDFile("zhengti-abaqus.pcd", *refer_cloud);
 
 	myrefer.cloud = refer_cloud;
@@ -92,8 +92,8 @@ int main()
 	grivtyAct(myalign.cloud, myalign.cloud, myalign.mass_center);
 
 	
-	pcl::io::savePCDFile("zhengti-abaqus-zhongxin.pcd", *myrefer.cloud);
-	pcl::io::savePCDFile("zhengti-dianyun-zhongxin.pcd", *myalign.cloud);
+	//pcl::io::savePCDFile("zhengti-abaqus-zhongxin.pcd", *myrefer.cloud);
+	pcl::io::savePCDFile("1-zhongxin.pcd", *myalign.cloud);
 
 	//重新计算各特征值
 	

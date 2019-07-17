@@ -212,20 +212,20 @@ int main()
 	////创建mesh对象
 	//pcl::PolygonMesh mesh;
 	////读取polygon文件，obj格式读取为mesh
-	//pcl::io::loadPolygonFile("zhengti-dianyun.obj", mesh);
+	//pcl::io::loadPolygonFile("1.obj", mesh);
 	//
 	//
 	//
 	////将mesh格式转换为PointCloud格式 方便读取
 	//pcl::fromPCLPointCloud2(mesh.cloud, *cloud_align);
 	////转存为可读取的PCD文件格式
-	//pcl::io::savePCDFileASCII("zhengti-dianyun.pcd", *cloud_align);
+	//pcl::io::savePCDFileASCII("1.pcd", *cloud_align);
 
 
 	cout << "********************LOAD FILES PHASE********************" << endl;
 	//refer-scale 1.6999	align-scale  128.799
-	pcl::io::loadPCDFile("zhengti-abaqus-zhongxin.pcd", *cloud_refer);
-	pcl::io::loadPCDFile("zhengti-dianyun-zhongxin.pcd", *cloud_align);
+	pcl::io::loadPCDFile("3-zhongxin-scale.pcd", *cloud_refer);
+	pcl::io::loadPCDFile("chaijie17-zhongxin.pcd", *cloud_align);
 
 	cout << "Reference Point cloud data: " << cloud_refer->points.size() << " points" << endl;
 	cout << "Aligned Point cloud data: " << cloud_align->points.size() << " points" << endl;
@@ -235,12 +235,12 @@ int main()
 	refer.cloud = cloud_refer;
 	align.cloud = cloud_align;
 
-	cout << "********************SPATIAL TRANSFORM PHASE********************" << endl;
+	//cout << "********************SPATIAL TRANSFORM PHASE********************" << endl;
 	//对refer和align点云进行空间变换到原点位置
 	//spatialTF(refer);
 	//spatialTF(align);
 
-	cout << "********************SCALE TRANSFORM PHASE********************" << endl;
+	//cout << "********************SCALE TRANSFORM PHASE********************" << endl;
 	//对对齐点云依照参考点云的尺寸大小进行缩放的倍数
 
 	
@@ -302,7 +302,7 @@ int main()
 	icp.align(*tempFinal);
 	
 	align.cloud = tempFinal;
-	cout << "*********----------SUB SPATIAL TRANSFORM PHASE----------*********" << endl;
+	//cout << "*********----------SUB SPATIAL TRANSFORM PHASE----------*********" << endl;
 	//spatialTF(align);
 	Eigen::Affine3f transform_rota = Eigen::Affine3f::Identity();
 	transform_rota.rotate(Eigen::AngleAxisf(M_PI, Eigen::Vector3f::UnitY()));
@@ -312,7 +312,7 @@ int main()
 	//pcl::transformPointCloud(*align.transformedCloud, *align.transformedCloud, transform_rota1);
 
 	//Eigen::Matrix4f transformation = icp.getFinalTransformation();
-	cout << "*********----------SUB ICP RESULT PHASE----------*********" << endl;
+	//cout << "*********----------SUB ICP RESULT PHASE----------*********" << endl;
 	cout << "has converged: " << icp.hasConverged() << endl;
 
 	//Obtain the Euclidean fitness score (e.g.,the average of sum of squared distances from the source to the target) 
@@ -325,7 +325,7 @@ int main()
 
 
 
-	cout << "running time : " << time.getTime() << endl;
+	cout << "running time : " << time.getTime() / 60000 << "mins"<< endl;
 	
 	//-------------------------ICP visualization-----------------------
 	//refer cloud phase
