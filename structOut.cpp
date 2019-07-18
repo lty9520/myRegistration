@@ -1,5 +1,7 @@
 #include <iostream>
 #include <string>
+#include <fstream>
+#include <sstream>
 
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_cloud.h>
@@ -249,21 +251,21 @@ struct com15
 */
 struct parasOut
 {
-	com01 paras01;
-	com02 paras02;
-	com03 paras03;
-	com04 paras04;
-	com05 paras05;
-	com06 paras06;
-	com07 paras07;
-	com08 paras08;
-	com09 paras09;
-	com10 paras10;
-	com11 paras11;
-	com12 paras12;
-	com13 paras13;
-	com14 paras14;
-	com15 paras15;
+	vector<pair<string, double>> paras01;
+	vector<pair<string, double>> paras02;
+	vector<pair<string, double>> paras03;
+	vector<pair<string, double>> paras04;
+	vector<pair<string, double>> paras05;
+	vector<pair<string, double>> paras06;
+	vector<pair<string, double>> paras07;
+	vector<pair<string, double>> paras08;
+	vector<pair<string, double>> paras09;
+	vector<pair<string, double>> paras10;
+	vector<pair<string, double>> paras11;
+	vector<pair<string, double>> paras12;
+	vector<pair<string, double>> paras13;
+	vector<pair<string, double>> paras14;
+	vector<pair<string, double>> paras15;
 };
 
 /*
@@ -294,6 +296,7 @@ struct parasCalc
 	/	transformedCloud → pcl::PointXYZ格式点云数据
 	\	calcP → 中间计算结构体
 	|	outP → 输出参数组结构体
+	|	file → 参数文件
 	\
 */
 struct myModel
@@ -302,18 +305,96 @@ struct myModel
 	pcl::PointCloud<pcl::PointXYZ>::Ptr transformedCloud;
 	parasCalc calcP;
 	parasOut outP;
-	int i;
-	double d;
-	string s;
-
+	string file;
 };
+
+void split(const string& s, vector<pair<string, double>>& sv, const char flag = ' ') {
+	//sv.clear();
+	istringstream iss(s);
+	string temp;
+	vector<string> tempv;
+	while (getline(iss, temp, flag)) {
+		tempv.push_back(temp);
+	}
+	pair<string, double> tempp;
+	if (tempv.size() < 2)
+	{
+		tempp.first = tempv[0];
+		tempp.second = 0;
+	}
+	else 
+	{
+		tempp.first = tempv[0];
+		tempp.second = stod(tempv[1]);
+	}
+	
+	sv.push_back(tempp);
+	return;
+}
+
+
 
 int main()
 {
 	//myModel temp = { 10, 0.05, "aaa" };
-
+	myModel model;
 	cout << "print out :" << endl;
 	//cout << temp << endl;
+
+	vector<pair<string, double>>paras;
+	string line;
+	ifstream open("shuchu.txt");
+	while (getline(open, line))
+	{
+		split(line, paras, '\t');
+		
+	}
+	open.close();
+
+
+	vector < pair<string, vector<pair<string, double>> >> outP;
+	int n = 0;
+	string namefir = "component";
+	stringstream name;
+	pair<string, vector<pair<string, double>> >temp;
+	vector<pair <string, double>>tempv;
+	for (int i = 0; i < paras.size(); i++)
+	{
+		
+		if (paras[i].first == "b")
+		{
+			if (temp.first == "" && temp.second.size() == 0)
+			{
+				n++;
+				name << namefir << n;
+				temp.first = name.str();
+				tempv.clear();
+				tempv.push_back(paras[i]);
+			}
+			else
+			{
+				temp.second = tempv;
+				outP.push_back(temp);
+				n++;
+				name.str("");
+				name << namefir << n;
+				temp.first = name.str();
+				tempv.clear();
+				tempv.push_back(paras[i]);
+				
+			}
+			
+		}
+		else
+		{
+			tempv.push_back(paras[i]);
+		}
+	}
+
+	for (int i = 0; i < paras.size(); i++)
+	{
+		cout << paras[i].first << " = " << paras[i].second << endl;
+	}
 
 	system("pause");
 }
